@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthGuard } from "@/components/auth-guard";
 import { Topbar } from "@/components/topbar";
 import { formatDate, formatDateTime, formatHours, formatMoney } from "@/lib/format";
-import { supabase } from "@/lib/supabase";
+import { getAccessToken, supabase } from "@/lib/supabase";
 
 type Profile = {
   id: string;
@@ -23,22 +23,27 @@ type ScheduleDay = {
 
 type Shift = {
   id: string;
-  shift_date: string;
-  started_at: string;
-  ended_at: string | null;
-  duration_minutes: number | null;
+  shiftDate: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationMinutes: number | null;
   status: string;
+  includedInPayroll?: boolean;
 };
 
 type PayrollEntry = {
   id: string;
-  final_amount: number;
-  bonuses: number;
-  deductions: number;
-  total_minutes: number;
-  details: Record<string, unknown>;
-  period_start: string;
-  period_end: string;
+  grossAmount: number;
+  bonusesAmount: number;
+  deductionsAmount: number;
+  totalDue: number;
+  paidAmount: number;
+  balanceAmount: number;
+  workedMinutes: number;
+  snapshot: Record<string, unknown>;
+  periodStart: string;
+  periodEnd: string;
+  runStatus: string;
 };
 
 type Violation = {
@@ -48,19 +53,6 @@ type Violation = {
   resolved: boolean;
 };
 
-function isShiftPaid(shiftDate: string, payrollEntries: PayrollEntry[]) {
-  return payrollEntries.some((entry) => {
-    const start = entry.period_start;
-    const end = entry.period_end;
-
-    if (!start || !end) {
-      return false;
-    }
-
-    return shiftDate >= start && shiftDate <= end;
-  });
-}
-
 export function EmployeeDashboard() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -68,6 +60,14 @@ export function EmployeeDashboard() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [payrollEntries, setPayrollEntries] = useState<PayrollEntry[]>([]);
   const [violations, setViolations] = useState<Violation[]>([]);
+  const [totals, setTotals] = useState({
+    totalWorkedMinutes: 0,
+    payrollWorkedMinutes: 0,
+    unpaidWorkedMinutes: 0,
+    totalAccruedAmount: 0,
+    totalPaidAmount: 0,
+    outstandingAmount: 0,
+  });
   const [showAllSchedule, setShowAllSchedule] = useState(false);
   const [showAllShifts, setShowAllShifts] = useState(false);
   const [showAllPayroll, setShowAllPayroll] = useState(false);
@@ -83,69 +83,50 @@ export function EmployeeDashboard() {
         return;
       }
 
-      const userId = session.user.id;
+      const token = await getAccessToken();
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
-      const [
-        profileResult,
-        scheduleResult,
-        shiftsResult,
-        payrollResult,
-        violationsResult,
-      ] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, email, role").eq("id", userId).single(),
-        supabase
-          .from("schedule_days")
-          .select("id, work_date, day_type, expected_start, expected_end")
-          .eq("employee_id", userId)
-          .order("work_date", { ascending: false })
-          .limit(14),
-        supabase
-          .from("shifts")
-          .select("id, shift_date, started_at, ended_at, duration_minutes, status")
-          .eq("employee_id", userId)
-          .order("started_at", { ascending: false })
-          .limit(30),
-        supabase
-          .rpc("employee_payroll_entries", { p_limit: 12 }),
-        supabase
-          .from("discipline_violations")
-          .select("id, violation_type, violation_date, resolved")
-          .eq("employee_id", userId)
-          .order("violation_date", { ascending: false })
-          .limit(10),
-      ]);
+      const response = await fetch("/api/employee/dashboard", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      setProfile(profileResult.data as Profile);
-      setSchedule((scheduleResult.data ?? []) as ScheduleDay[]);
-      setShifts((shiftsResult.data ?? []) as Shift[]);
-      setPayrollEntries((payrollResult.data ?? []) as PayrollEntry[]);
-      setViolations((violationsResult.data ?? []) as Violation[]);
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        profile?: Profile;
+        schedule?: ScheduleDay[];
+        shifts?: Shift[];
+        payrollItems?: PayrollEntry[];
+        violations?: Violation[];
+        totals?: typeof totals;
+      };
+
+      if (!response.ok) {
+        setLoading(false);
+        return;
+      }
+
+      setProfile((payload.profile ?? null) as Profile | null);
+      setSchedule((payload.schedule ?? []) as ScheduleDay[]);
+      setShifts((payload.shifts ?? []) as Shift[]);
+      setPayrollEntries((payload.payrollItems ?? []) as PayrollEntry[]);
+      setViolations((payload.violations ?? []) as Violation[]);
+      setTotals(payload.totals ?? totals);
       setLoading(false);
     }
 
     load();
   }, []);
 
-  const totalWorkedMinutes = useMemo(
-    () =>
-      shifts
-        .filter((shift) => shift.status === "closed")
-        .reduce((sum, shift) => sum + (shift.duration_minutes ?? 0), 0),
-    [shifts]
-  );
-
-  const paidWorkedMinutes = useMemo(
-    () =>
-      shifts
-        .filter((shift) => shift.status === "closed" && isShiftPaid(shift.shift_date, payrollEntries))
-        .reduce((sum, shift) => sum + (shift.duration_minutes ?? 0), 0),
-    [payrollEntries, shifts]
-  );
-
-  const unpaidWorkedMinutes = Math.max(0, totalWorkedMinutes - paidWorkedMinutes);
-  const totalEarned = payrollEntries.reduce((sum, entry) => sum + entry.final_amount, 0);
   const activeViolations = violations.filter((item) => !item.resolved).length;
-  const payoutCoverage = totalWorkedMinutes > 0 ? Math.round((paidWorkedMinutes / totalWorkedMinutes) * 100) : 0;
+  const payoutCoverage =
+    totals.totalAccruedAmount > 0
+      ? Math.max(0, Math.min(100, Math.round((totals.totalPaidAmount / totals.totalAccruedAmount) * 100)))
+      : 0;
   const visibleSchedule = showAllSchedule ? schedule : schedule.slice(0, 5);
   const visibleShifts = showAllShifts ? shifts : shifts.slice(0, 6);
   const visiblePayrollEntries = showAllPayroll ? payrollEntries : payrollEntries.slice(0, 4);
@@ -172,23 +153,27 @@ export function EmployeeDashboard() {
             <section className="stats-grid employee-stats-grid">
               <article className="stat-card">
                 <span>Відпрацьовано всього</span>
-                <strong>{formatHours(totalWorkedMinutes)}</strong>
+                <strong>{formatHours(totals.totalWorkedMinutes)}</strong>
               </article>
               <article className="stat-card">
-                <span>Години у виплатах</span>
-                <strong>{formatHours(paidWorkedMinutes)}</strong>
+                <span>Години у payroll</span>
+                <strong>{formatHours(totals.payrollWorkedMinutes)}</strong>
               </article>
               <article className="stat-card">
-                <span>Ще не виплачено</span>
-                <strong>{formatHours(unpaidWorkedMinutes)}</strong>
+                <span>Ще не включено</span>
+                <strong>{formatHours(totals.unpaidWorkedMinutes)}</strong>
               </article>
               <article className="stat-card">
-                <span>Отриманий заробіток</span>
-                <strong>{formatMoney(totalEarned)}</strong>
+                <span>Нараховано у payroll</span>
+                <strong>{formatMoney(totals.totalAccruedAmount)}</strong>
               </article>
               <article className="stat-card">
-                <span>Активні порушення</span>
-                <strong>{activeViolations}</strong>
+                <span>Виплачено фактично</span>
+                <strong>{formatMoney(totals.totalPaidAmount)}</strong>
+              </article>
+              <article className="stat-card">
+                <span>Залишок до виплати</span>
+                <strong>{formatMoney(totals.outstandingAmount)}</strong>
               </article>
             </section>
 
@@ -201,7 +186,7 @@ export function EmployeeDashboard() {
                 <div className="progress-card">
                   <div className="progress-copy">
                     <strong>{payoutCoverage}%</strong>
-                    <span>Закриті години, які вже входять у сформовані payroll-періоди.</span>
+                    <span>Яка частина нарахованої суми вже фактично виплачена працівнику.</span>
                   </div>
                   <div className="chart-track progress-track">
                     <div className="chart-bar" style={{ width: `${Math.max(payoutCoverage, 6)}%` }} />
@@ -265,14 +250,14 @@ export function EmployeeDashboard() {
                 </div>
                 <div className="schedule-table">
                   {visibleShifts.map((item) => {
-                    const paid = item.status === "closed" && isShiftPaid(item.shift_date, payrollEntries);
+                    const paid = item.status === "closed" && Boolean(item.includedInPayroll);
 
                     return (
                       <div key={item.id} className="table-row stack employee-list-card">
-                        <strong>{formatDate(item.shift_date)}</strong>
-                        <span>Початок: {formatDateTime(item.started_at)}</span>
-                        <span>{item.ended_at ? `Завершення: ${formatDateTime(item.ended_at)}` : "Зміна відкрита"}</span>
-                        <span>Тривалість: {item.duration_minutes ? formatHours(item.duration_minutes) : "..."}</span>
+                        <strong>{formatDate(item.shiftDate)}</strong>
+                        <span>Початок: {formatDateTime(item.startedAt)}</span>
+                        <span>{item.endedAt ? `Завершення: ${formatDateTime(item.endedAt)}` : "Зміна відкрита"}</span>
+                        <span>Тривалість: {item.durationMinutes ? formatHours(item.durationMinutes) : "..."}</span>
                         <span className={paid ? "status-paid" : "status-unpaid"}>
                           {item.status === "open"
                             ? "Ще триває"
@@ -302,22 +287,19 @@ export function EmployeeDashboard() {
                 <div className="schedule-table">
                   {visiblePayrollEntries.map((entry) => (
                     <div key={entry.id} className="table-row stack employee-list-card">
-                      <strong>{formatMoney(entry.final_amount)}</strong>
+                      <strong>{formatMoney(entry.totalDue)}</strong>
                       <span>
-                        Період: {entry.period_start ?? "-"} - {entry.period_end ?? "-"}
+                        Період: {entry.periodStart ?? "-"} - {entry.periodEnd ?? "-"}
                       </span>
-                      <span>Години у виплаті: {formatHours(entry.total_minutes)}</span>
-                      {typeof entry.details === "object" && entry.details ? (
+                      <span>Години у payroll: {formatHours(entry.workedMinutes)}</span>
+                      <span>Статус run: {entry.runStatus === "closed" ? "Закрито" : "Чернетка"}</span>
+                      {typeof entry.snapshot === "object" && entry.snapshot ? (
                         <span>
-                          Base:{" "}
-                          {formatHours(Number((entry.details as any).base_minutes ?? 0))},{" "}
-                          Overtime:{" "}
-                          {formatHours(Number((entry.details as any).overtime_minutes ?? 0))}{" "}
-                          ×{Number((entry.details as any).overtime_multiplier ?? 1).toFixed(2)}
+                          Нараховано: {formatMoney(entry.grossAmount)} · Залишок: {formatMoney(entry.balanceAmount)}
                         </span>
                       ) : null}
-                      <span>Бонуси: {formatMoney(entry.bonuses)}</span>
-                      <span>Штрафи: {formatMoney(entry.deductions)}</span>
+                      <span>Бонуси: {formatMoney(entry.bonusesAmount)}</span>
+                      <span>Штрафи: {formatMoney(entry.deductionsAmount)}</span>
                     </div>
                   ))}
                   {payrollEntries.length === 0 ? <p>Нарахувань ще немає.</p> : null}

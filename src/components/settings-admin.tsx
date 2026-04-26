@@ -24,6 +24,9 @@ type CompanySettingsPayload = {
     nightShiftMultiplier: number;
     maxBonusAdjustmentAmount: number;
     maxDeductionAdjustmentAmount: number;
+    profitabilityMonthlyRentAmount: number;
+    profitabilityTaxRate: number;
+    profitabilityWithdrawalFeeRate: number;
   };
   breakPolicies: Array<{
     id?: string;
@@ -34,6 +37,8 @@ type CompanySettingsPayload = {
     isRequired: boolean;
     deductFromPayroll: boolean;
     triggerAfterMinutes: number | null;
+    breakStartTime: string | null;
+    breakEndTime: string | null;
     sortOrder: number;
     isActive: boolean;
   }>;
@@ -63,6 +68,9 @@ const fallbackSettings: CompanySettingsPayload["settings"] = {
   nightShiftMultiplier: 1.2,
   maxBonusAdjustmentAmount: 10000,
   maxDeductionAdjustmentAmount: 10000,
+  profitabilityMonthlyRentAmount: 65000,
+  profitabilityTaxRate: 0.23,
+  profitabilityWithdrawalFeeRate: 0.02,
 };
 
 async function callAdminJson<T>(path: string, options?: { method?: "GET" | "POST" | "PUT"; body?: unknown }) {
@@ -166,6 +174,8 @@ export function SettingsAdminPage() {
         isRequired: false,
         deductFromPayroll: true,
         triggerAfterMinutes: null,
+        breakStartTime: null,
+        breakEndTime: null,
         sortOrder: current.length,
         isActive: true,
       },
@@ -232,6 +242,57 @@ export function SettingsAdminPage() {
                   <span>Крок округлення (хв)</span>
                   <input type="number" min="1" value={settings.timeRoundingStepMinutes} onChange={(e) => setSettings((current) => ({ ...current, timeRoundingStepMinutes: Number(e.target.value) }))} />
                 </label>
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Маржинальність</p>
+                  <h2>Фінансові коефіцієнти</h2>
+                </div>
+              </div>
+
+              <div className="field-row">
+                <label className="field">
+                  <span>Оренда за місяць</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={settings.profitabilityMonthlyRentAmount}
+                    onChange={(e) => setSettings((current) => ({ ...current, profitabilityMonthlyRentAmount: Number(e.target.value) }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>Податок (частка)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={settings.profitabilityTaxRate}
+                    onChange={(e) => setSettings((current) => ({ ...current, profitabilityTaxRate: Number(e.target.value) }))}
+                  />
+                </label>
+              </div>
+
+              <div className="field-row">
+                <label className="field">
+                  <span>Комісія за зняття (частка)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={settings.profitabilityWithdrawalFeeRate}
+                    onChange={(e) => setSettings((current) => ({ ...current, profitabilityWithdrawalFeeRate: Number(e.target.value) }))}
+                  />
+                </label>
+                <div className="editor-card">
+                  <strong>Пояснення</strong>
+                  <p className="muted-copy">
+                    Тут вказуються коефіцієнти для сторінки маржинальності. Наприклад, 0.23 = 23%, 0.02 = 2%.
+                  </p>
+                </div>
               </div>
             </article>
 
@@ -316,6 +377,25 @@ export function SettingsAdminPage() {
                           placeholder="Напр. 240"
                           value={policy.triggerAfterMinutes ?? ""}
                           onChange={(e) => updateBreak(index, { triggerAfterMinutes: e.target.value ? Number(e.target.value) : null })}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="field-row">
+                      <label className="field">
+                        <span>З якого часу</span>
+                        <input
+                          type="time"
+                          value={policy.breakStartTime ?? ""}
+                          onChange={(e) => updateBreak(index, { breakStartTime: e.target.value || null })}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>По який час</span>
+                        <input
+                          type="time"
+                          value={policy.breakEndTime ?? ""}
+                          onChange={(e) => updateBreak(index, { breakEndTime: e.target.value || null })}
                         />
                       </label>
                     </div>

@@ -11,6 +11,7 @@ const NAV = [
   { href: "/admin/schedule", label: "Зміни" },
   { href: "/admin/time", label: "Час" },
   { href: "/admin/payroll", label: "Зарплата" },
+  { href: "/admin/profitability", label: "Маржинальність" },
   { href: "/admin/analytics", label: "Аналітика" },
   { href: "/admin/settings", label: "Налаштування" },
 ] as const;

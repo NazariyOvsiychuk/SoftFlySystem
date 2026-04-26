@@ -1580,80 +1580,80 @@ function EditableEmployeeCardV2({
             </button>
           </>
         ) : null}
-      </div>
 
-      {securityOpen ? (
-        <>
-          <button type="button" className="popover-scrim" onClick={() => setSecurityOpen(false)} />
-          <div className="panel popover employee-security-modal">
-            <div className="panel-head">
-              <div>
-                <p className="eyebrow">Доступ працівника</p>
-                <h2>{fullName || employee.email}</h2>
+        {securityOpen ? (
+          <>
+            <button type="button" className="popover-scrim" onClick={() => setSecurityOpen(false)} />
+            <div className="panel popover employee-security-modal employee-security-popover">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Доступ працівника</p>
+                  <h2>{fullName || employee.email}</h2>
+                </div>
+              </div>
+
+              <div className="field-row">
+                <label className="field">
+                  <span>PIN</span>
+                  <input
+                    value={pinCode}
+                    onChange={(e) => setPinCode(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                    placeholder="5 цифр"
+                  />
+                </label>
+                <label className="field">
+                  <span>ID відбитка</span>
+                  <input
+                    value={fingerprintId}
+                    onChange={(e) => setFingerprintId(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="Напр. 17"
+                  />
+                </label>
+              </div>
+
+              <div className="field-row">
+                <label className="field">
+                  <span>Новий пароль</span>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Залиш порожнім, якщо не змінюєш"
+                  />
+                </label>
+                <label className="field checkbox-row">
+                  <span>Доступ до термінала</span>
+                  <input
+                    type="checkbox"
+                    checked={terminalAccessEnabled}
+                    onChange={(e) => setTerminalAccessEnabled(e.target.checked)}
+                  />
+                </label>
+              </div>
+
+              <div className="hint-text">
+                Поточний пароль не можна переглянути. Тут можна лише задати новий. `Fingerprint ID` підтягується автоматично з поточних налаштувань працівника.
+              </div>
+
+              <div className="field-row">
+                <button className="button button-primary full-width" type="button" disabled={disabled} onClick={saveSecurity}>
+                  Зберегти доступ
+                </button>
+                <button
+                  className="button button-secondary full-width"
+                  type="button"
+                  onClick={() => {
+                    setPassword("");
+                    setSecurityOpen(false);
+                  }}
+                >
+                  Скасувати
+                </button>
               </div>
             </div>
-
-            <div className="field-row">
-              <label className="field">
-                <span>PIN</span>
-                <input
-                  value={pinCode}
-                  onChange={(e) => setPinCode(e.target.value.replace(/\D/g, "").slice(0, 5))}
-                  placeholder="5 цифр"
-                />
-              </label>
-              <label className="field">
-                <span>ID відбитка</span>
-                <input
-                  value={fingerprintId}
-                  onChange={(e) => setFingerprintId(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="Напр. 17"
-                />
-              </label>
-            </div>
-
-            <div className="field-row">
-              <label className="field">
-                <span>Новий пароль</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Залиш порожнім, якщо не змінюєш"
-                />
-              </label>
-              <label className="field checkbox-row">
-                <span>Доступ до термінала</span>
-                <input
-                  type="checkbox"
-                  checked={terminalAccessEnabled}
-                  onChange={(e) => setTerminalAccessEnabled(e.target.checked)}
-                />
-              </label>
-            </div>
-
-            <div className="hint-text">
-              Поточний пароль не можна переглянути. Тут можна лише задати новий. `Fingerprint ID` підтягується автоматично з поточних налаштувань працівника.
-            </div>
-
-            <div className="field-row">
-              <button className="button button-primary full-width" type="button" disabled={disabled} onClick={saveSecurity}>
-                Зберегти доступ
-              </button>
-              <button
-                className="button button-secondary full-width"
-                type="button"
-                onClick={() => {
-                  setPassword("");
-                  setSecurityOpen(false);
-                }}
-              >
-                Скасувати
-              </button>
-            </div>
-          </div>
-        </>
-      ) : null}
+          </>
+        ) : null}
+      </div>
     </>
   );
 }

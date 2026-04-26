@@ -10,6 +10,8 @@ type BreakPolicyInput = {
   isRequired?: boolean;
   deductFromPayroll?: boolean;
   triggerAfterMinutes?: number | null;
+  breakStartTime?: string | null;
+  breakEndTime?: string | null;
   sortOrder?: number;
   isActive?: boolean;
 };
@@ -31,6 +33,9 @@ const defaultSettings = {
   nightShiftMultiplier: 1.2,
   maxBonusAdjustmentAmount: 10000,
   maxDeductionAdjustmentAmount: 10000,
+  profitabilityMonthlyRentAmount: 65000,
+  profitabilityTaxRate: 0.23,
+  profitabilityWithdrawalFeeRate: 0.02,
 };
 
 async function requireAdmin(request: NextRequest) {
@@ -62,6 +67,8 @@ function normalizeBreakPolicy(row: any) {
     isRequired: Boolean(row.is_required),
     deductFromPayroll: Boolean(row.deduct_from_payroll),
     triggerAfterMinutes: row.trigger_after_minutes == null ? null : Number(row.trigger_after_minutes),
+    breakStartTime: row.break_start_time ? String(row.break_start_time).slice(0, 5) : null,
+    breakEndTime: row.break_end_time ? String(row.break_end_time).slice(0, 5) : null,
     sortOrder: Number(row.sort_order ?? 0),
     isActive: Boolean(row.is_active),
   };
@@ -85,6 +92,9 @@ function normalizeSettings(row: any) {
     nightShiftMultiplier: Number(row?.night_shift_multiplier ?? defaultSettings.nightShiftMultiplier),
     maxBonusAdjustmentAmount: Number(row?.max_bonus_adjustment_amount ?? defaultSettings.maxBonusAdjustmentAmount),
     maxDeductionAdjustmentAmount: Number(row?.max_deduction_adjustment_amount ?? defaultSettings.maxDeductionAdjustmentAmount),
+    profitabilityMonthlyRentAmount: Number(row?.profitability_monthly_rent_amount ?? defaultSettings.profitabilityMonthlyRentAmount),
+    profitabilityTaxRate: Number(row?.profitability_tax_rate ?? defaultSettings.profitabilityTaxRate),
+    profitabilityWithdrawalFeeRate: Number(row?.profitability_withdrawal_fee_rate ?? defaultSettings.profitabilityWithdrawalFeeRate),
   };
 }
 
@@ -154,6 +164,9 @@ export async function PUT(request: NextRequest) {
         night_shift_multiplier: Math.max(1, Number(settings.nightShiftMultiplier ?? defaultSettings.nightShiftMultiplier)),
         max_bonus_adjustment_amount: Math.max(0, Number(settings.maxBonusAdjustmentAmount ?? defaultSettings.maxBonusAdjustmentAmount)),
         max_deduction_adjustment_amount: Math.max(0, Number(settings.maxDeductionAdjustmentAmount ?? defaultSettings.maxDeductionAdjustmentAmount)),
+        profitability_monthly_rent_amount: Math.max(0, Number(settings.profitabilityMonthlyRentAmount ?? defaultSettings.profitabilityMonthlyRentAmount)),
+        profitability_tax_rate: Math.max(0, Number(settings.profitabilityTaxRate ?? defaultSettings.profitabilityTaxRate)),
+        profitability_withdrawal_fee_rate: Math.max(0, Number(settings.profitabilityWithdrawalFeeRate ?? defaultSettings.profitabilityWithdrawalFeeRate)),
       },
       { onConflict: "singleton_key" }
     );
@@ -176,6 +189,8 @@ export async function PUT(request: NextRequest) {
         is_required: Boolean(policy.isRequired),
         deduct_from_payroll: Boolean(policy.deductFromPayroll),
         trigger_after_minutes: policy.triggerAfterMinutes == null || policy.triggerAfterMinutes === 0 ? null : Math.max(1, Number(policy.triggerAfterMinutes)),
+        break_start_time: policy.breakStartTime || null,
+        break_end_time: policy.breakEndTime || null,
         sort_order: Number(policy.sortOrder ?? index),
         is_active: Boolean(policy.isActive ?? true),
       };

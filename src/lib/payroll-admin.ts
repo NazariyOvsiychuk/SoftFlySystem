@@ -1,4 +1,5 @@
 import { adminSupabase } from "@/lib/admin-server";
+import { calculateShiftCompensation, loadPayrollRules } from "@/lib/payroll-rules";
 
 export type PayrollSummaryRow = {
   employeeId: string;
@@ -68,7 +69,8 @@ function relationFirst<T>(value: T | T[] | null | undefined): T | null {
 }
 
 export async function buildPayrollSummary(periodStart: string, periodEnd: string) {
-  const [employeesResult, shiftsResult, paymentsResult, adjustmentsResult, rateHistoryResult, ledgerResult] = await Promise.all([
+  const [rules, employeesResult, shiftsResult, paymentsResult, adjustmentsResult, rateHistoryResult, ledgerResult] = await Promise.all([
+    loadPayrollRules(),
     adminSupabase
       .from("profiles")
       .select("id, full_name, email, is_active, employee_settings(hourly_rate)")
@@ -165,7 +167,6 @@ export async function buildPayrollSummary(periodStart: string, periodEnd: string
     const row = rows.get(shift.employee_id);
     if (!row) continue;
     const minutes = Math.max(0, Math.floor(numeric(shift.duration_minutes)));
-    row.workedMinutes += minutes;
     const rates = ratesByEmployee.get(shift.employee_id) ?? [];
     const shiftStartedAt = String(shift.started_at);
     let shiftRate = row.hourlyRate;
@@ -174,7 +175,16 @@ export async function buildPayrollSummary(periodStart: string, periodEnd: string
         shiftRate = candidate.hourlyRate;
       }
     }
-    row.grossAmount += roundMoney((minutes / 60) * shiftRate);
+    const compensation = calculateShiftCompensation({
+      startedAt: shiftStartedAt,
+      endedAt: shift.ended_at ? String(shift.ended_at) : null,
+      durationMinutes: minutes,
+      hourlyRate: shiftRate,
+      settings: rules.settings,
+      breakPolicies: rules.breakPolicies,
+    });
+    row.workedMinutes += compensation.payableMinutes;
+    row.grossAmount += compensation.grossAmount;
   }
 
   for (const adjustment of adjustmentsResult.data ?? []) {
@@ -245,7 +255,8 @@ export async function buildPayrollEmployeeDetail(
   periodStart: string,
   periodEnd: string
 ): Promise<PayrollEmployeeDetail> {
-  const [profileResult, shiftsResult, paymentsResult, adjustmentsResult] = await Promise.all([
+  const [rules, profileResult, shiftsResult, paymentsResult, adjustmentsResult] = await Promise.all([
+    loadPayrollRules(),
     adminSupabase
       .from("profiles")
       .select("id, full_name, email, employee_settings(hourly_rate)")
@@ -301,14 +312,25 @@ export async function buildPayrollEmployeeDetail(
         ),
     },
     summary,
-    shifts: (shiftsResult.data ?? []).map((shift) => ({
-      id: String(shift.id),
-      shiftDate: String(shift.shift_date),
-      startedAt: String(shift.started_at),
-      endedAt: shift.ended_at ? String(shift.ended_at) : null,
-      durationMinutes: Math.max(0, Math.floor(numeric(shift.duration_minutes))),
-      status: String(shift.status),
-    })),
+    shifts: (shiftsResult.data ?? []).map((shift) => {
+      const compensation = calculateShiftCompensation({
+        startedAt: String(shift.started_at),
+        endedAt: shift.ended_at ? String(shift.ended_at) : null,
+        durationMinutes: Math.max(0, Math.floor(numeric(shift.duration_minutes))),
+        hourlyRate: summary.hourlyRate,
+        settings: rules.settings,
+        breakPolicies: rules.breakPolicies,
+      });
+
+      return {
+        id: String(shift.id),
+        shiftDate: String(shift.shift_date),
+        startedAt: String(shift.started_at),
+        endedAt: shift.ended_at ? String(shift.ended_at) : null,
+        durationMinutes: compensation.payableMinutes,
+        status: String(shift.status),
+      };
+    }),
     payments: (paymentsResult.data ?? []).map((payment) => ({
       id: String(payment.id),
       employeeId: String(payment.employee_id),

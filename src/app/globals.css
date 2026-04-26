@@ -170,6 +170,15 @@ a {
   box-shadow: 0 18px 40px rgba(17, 24, 39, 0.18);
 }
 
+.employee-security-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  left: auto;
+  width: min(440px, calc(100vw - 48px));
+  z-index: 60;
+}
+
 .accordion-stack {
   display: grid;
   gap: 10px;
@@ -517,7 +526,7 @@ a {
 }
 
 .employee-stats-grid {
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .employee-more-button {
@@ -1277,6 +1286,7 @@ a {
 }
 
 .editor-card {
+  position: relative;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -1373,6 +1383,160 @@ a {
   font-size: 2rem;
 }
 
+.profitability-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.profitability-toolbar {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  align-items: end;
+}
+
+.profitability-metrics-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.profitability-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profitability-formula,
+.editable-list,
+.compact-table {
+  display: grid;
+  gap: 14px;
+}
+
+.formula-line,
+.formula-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.formula-line strong,
+.formula-total strong {
+  font-size: 1.12rem;
+}
+
+.formula-line.negative strong {
+  color: #b95117;
+}
+
+.formula-total {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(61, 99, 255, 0.1), rgba(19, 185, 138, 0.1));
+}
+
+.formula-total em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.profitability-field-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profitability-field-span-2 {
+  grid-column: span 2;
+}
+
+.profitability-field-row-bottom {
+  align-items: end;
+}
+
+.profitability-inline-actions {
+  display: grid;
+  gap: 10px;
+  align-items: end;
+}
+
+.editor-card-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.editor-card-topline strong {
+  font-size: 1rem;
+}
+
+.profitability-inline-total {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.profitability-inline-total span {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.profitability-inline-total strong {
+  font-size: 1.1rem;
+}
+
+.compact-table-head,
+.compact-table-row {
+  display: grid;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.compact-table-head {
+  font-size: 0.86rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.compact-table-row {
+  border-bottom: 1px solid rgba(18, 40, 74, 0.08);
+}
+
+.compact-table-row:last-child {
+  border-bottom: 0;
+}
+
+.compact-table-head-batches {
+  grid-template-columns: 1.2fr 1.2fr 0.7fr 0.8fr 0.9fr;
+}
+
+.compact-table-head-costs {
+  grid-template-columns: 0.8fr 1.5fr 0.8fr 0.8fr;
+}
+
+.compact-table-head-employee-cost {
+  grid-template-columns: 1.3fr 0.7fr 0.7fr;
+}
+
+.profitability-sort-field {
+  min-width: 220px;
+  margin-bottom: 0;
+}
+
+.profitability-sort-field select {
+  min-width: 220px;
+}
+
 @media (max-width: 900px) {
   .hero,
   .grid,
@@ -1385,7 +1549,10 @@ a {
   .overview-guides,
   .field-row,
   .analytics-toolbar,
-  .analytics-layout {
+  .analytics-layout,
+  .profitability-toolbar,
+  .profitability-grid,
+  .profitability-metrics-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1405,6 +1572,30 @@ a {
 
   .readiness-grid {
     grid-template-columns: 1fr;
+  }
+
+  .compact-table-head,
+  .compact-table-row,
+  .compact-table-head-batches,
+  .compact-table-head-costs,
+  .compact-table-head-employee-cost,
+  .profitability-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .profitability-field-span-2 {
+    grid-column: span 1;
+  }
+
+  .editor-card-topline {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .profitability-sort-field,
+  .profitability-sort-field select {
+    min-width: 0;
+    width: 100%;
   }
 }
 
